@@ -1,7 +1,9 @@
 from fastapi import FastAPI, Response, status, HTTPException, Depends, APIRouter
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import func
 from .. import models, schemas, oauth2
 from ..database import get_db
+
 
 router = APIRouter(
     prefix="/posts",
@@ -11,7 +13,27 @@ router = APIRouter(
 @router.get("/", response_model=list[schemas.ReturnPost])
 async def get_post(db: Session = Depends(get_db), get_current_user: models.User = Depends(oauth2.get_current_user), limit: int = 10, skip: int = 0, search: str = ""):
     posts = db.query(models.Post).filter(models.Post.title.contains(search)).offset(skip).limit(limit).all()
-    return posts
+    result = db.query(models.Post, func.count(models.Vote.post_id).label("votes")).join(
+        models.Vote, models.Vote.post_id == models.Post.id, isouter=True
+    ).group_by(models.Post.id).filter(models.Post.title.contains(search)).offset(skip).limit(limit).all()
+
+    posts_with_votes = []
+    for post, votes in result:
+        posts_with_votes.append(schemas.ReturnPost(
+            id=post.id,
+            user_id=post.user_id,
+            title=post.title,
+            content=post.content,
+            published=post.published,
+            created_at=post.created_at,
+            owner=schemas.UserOut(
+                id=post.owner.id,
+                email=post.owner.email,
+                created_at=post.owner.created_at
+            ),
+            votes=votes
+        ))
+    return posts_with_votes
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=schemas.ReturnPost)
 async def create_posts(post: schemas.Post, db: Session = Depends(get_db), get_current_user: models.User = Depends(oauth2.get_current_user)):
@@ -24,10 +46,26 @@ async def create_posts(post: schemas.Post, db: Session = Depends(get_db), get_cu
     return new_post
 
 @router.get("/{id}", response_model=schemas.ReturnPost)
+# @router.get("/{id}")
 async def get_post(id: int, db: Session = Depends(get_db), get_current_user: models.User = Depends(oauth2.get_current_user)):
     post = db.query(models.Post).filter(models.Post.id == id).first()
+    # post = db.query(models.Post).filter(models.Post.id == id).options(joinedload(models.Post.owner)).first()
+    
     if post:
-        return post
+        return schemas.ReturnPost(
+            id=post.id,
+            user_id=post.user_id,
+            title=post.title,
+            content=post.content,
+            published=post.published,
+            created_at=post.created_at,
+            owner=schemas.UserOut(
+                id=post.owner.id,
+                email=post.owner.email,
+                created_at=post.owner.created_at
+            ),
+            votes=db.query(models.Vote).filter(models.Vote.post_id == post.id).count()
+        )
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"post with id {id} not found")
 
 @router.delete("/posts/{id}", status_code=status.HTTP_204_NO_CONTENT)
