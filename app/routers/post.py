@@ -82,7 +82,7 @@ async def delete_post(id: int, db: Session = Depends(get_db), get_current_user: 
         return Response(status_code=status.HTTP_204_NO_CONTENT)
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"post with id {id} not found")
 
-@router.put("/{id}", response_model=schemas.ReturnPost)
+@router.put("/{id}", response_model=schemas.CreatePost)
 async def update_post(id: int, post: schemas.Post, db: Session = Depends(get_db), get_current_user: models.User = Depends(oauth2.get_current_user)):
     updated_post = db.query(models.Post).filter(models.Post.id == id).first()
     if updated_post:
