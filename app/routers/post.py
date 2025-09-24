@@ -35,7 +35,7 @@ async def get_post(db: Session = Depends(get_db), get_current_user: models.User 
         ))
     return posts_with_votes
 
-@router.post("/", status_code=status.HTTP_201_CREATED, response_model=schemas.ReturnPost)
+@router.post("/", status_code=status.HTTP_201_CREATED, response_model=schemas.CreatePost)
 async def create_posts(post: schemas.Post, db: Session = Depends(get_db), get_current_user: models.User = Depends(oauth2.get_current_user)):
     print(get_current_user)
     user_id = get_current_user.id

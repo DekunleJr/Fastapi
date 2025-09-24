@@ -24,7 +24,7 @@ class UserLogin(BaseModel):
     email: EmailStr
     password: str
 
-class ReturnPost(BaseModel):
+class CreatePost(BaseModel):
     id: int
     user_id: int
     title: str  
@@ -32,6 +32,8 @@ class ReturnPost(BaseModel):
     published: bool
     created_at: datetime
     owner: UserOut
+
+class ReturnPost(CreatePost):
     votes: int
 
 class Token(BaseModel):
